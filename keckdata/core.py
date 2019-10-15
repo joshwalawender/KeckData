@@ -1,7 +1,7 @@
 #!/usr/env/python
 
 ## Import General Tools
-from pathlib import Path
+from pathlib import Path, PosixPath
 
 import numpy as np
 from astropy.io import fits
@@ -23,15 +23,24 @@ class IncompatiblePixelData(KeckDataError):
     objects which have incompatible pixeldata.
     """
     def __init__(self, message):
-        super().__init__(f"KeckData objects have incompatible pixeldata. {message}")
+        msg = f"KeckData objects have incompatible pixeldata. {message}"
+        super().__init__(msg)
 
 
 class IncorrectNumberOfExtensions(KeckDataError):
     """Raise when verify method fails for a specific instrument.
     """
     def __init__(self, datatype, expected, kd):
-        msg = f"Incorrect number of {datatype} entries.  Expected {expected} for {type(kd)}"
-        print(msg)
+        msg = (f"Incorrect number of {datatype} entries.  "
+               f"Expected {expected} for {type(kd)}")
+        super().__init__(msg)
+
+
+class UnableToParseInstrument(KeckDataError):
+    """Raise when failing to parse INSTRUME header keyword.
+    """
+    def __init__(self, message):
+        msg = f"Unable to determine instrument. {message}"
         super().__init__(msg)
 
 
@@ -50,6 +59,7 @@ class KeckData(object):
         self.pixeldata = []
         self.tabledata = []
         self.headers = []
+        self.instrument = None
 
     def verify(self):
         """Method to check the data against expectations. For the 
@@ -68,6 +78,7 @@ class KeckData(object):
             raise IncompatiblePixelData
         for i,pd in enumerate(self.pixeldata):
             self.pixeldata[i] = pd.add(kd2.pixeldata[i])
+        return self
 
     def subtract(self, kd2):
         """Method to subtract another KeckData object to this one
@@ -79,6 +90,7 @@ class KeckData(object):
             raise IncompatiblePixelData
         for i,pd in enumerate(self.pixeldata):
             self.pixeldata[i] = pd.subtract(kd2.pixeldata[i])
+        return self
 
     def multiply(self, kd2):
         """Method to multiply another KeckData object by this one
@@ -90,8 +102,9 @@ class KeckData(object):
             raise IncompatiblePixelData
         for i,pd in enumerate(self.pixeldata):
             self.pixeldata[i] = pd.multiply(kd2.pixeldata[i])
+        return self
 
-    def get(self, kw):
+    def get(self, kw, mode=None):
         """Method to loop over all headers and get the specified keyword value.
         Returns the first result it finds and doe not check for duplicate
         instances of the keyword in subsequent headers.
@@ -99,24 +112,36 @@ class KeckData(object):
         for hdr in self.headers:
             val = hdr.get(kw, None)
             if val is not None:
-                return val
+                if mode is not None:
+                    assert mode in [str, float, int, bool]
+                    if mode is bool and type(val) is str:
+                        if val.strip().lower() == 'false':
+                            return False
+                        elif val.strip().lower() == 'true':
+                            return True
+                    elif mode is bool and type(val) is int:
+                        return bool(int(val))
+                    # Convert result to requested type
+                    try:
+                        return mode(val)
+                    except ValueError:
+                        print(f'WARNING: Failed to parse "{val}" as {mode}')
+                        return val
+                else:
+                    return val
+        return None
 
-
-class MOSFIREData(KeckData):
-    """Class to represent MOSFIRE data.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def verify(self):
-        """Verifies that the data which was read in matches an expected pattern
+    def type(self):
+        """Return the image type.
+        
+        BIAS, DARK, INTFLAT, ARC, FLAT, FLATOFF, OBJECT
         """
-        if len(self.headers) != 5:
-            raise IncorrectNumberOfExtensions("header", "5", self)
-        if len(self.pixeldata) not in [1, 2, 3]:
-            raise IncorrectNumberOfExtensions("pixel", "1, 2, or 3", self)
-        if len(self.tabledata) != 4:
-            raise IncorrectNumberOfExtensions("table", "4", self)
+        return None
+
+    def exptime(self):
+        """Return the exposure time in seconds.
+        """
+        return self.get('EXPTIME')
 
 
 ##-------------------------------------------------------------------------
@@ -157,7 +182,7 @@ def get_hdu_type(hdu):
 ##-------------------------------------------------------------------------
 ## KeckData Reader
 ##-------------------------------------------------------------------------
-def fits_keckdata_reader(file, defaultunit='adu', datatype=KeckData):
+def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
     """A reader for KeckData objects.
     
     Currently this is a separate function, but should probably be
@@ -175,6 +200,9 @@ def fits_keckdata_reader(file, defaultunit='adu', datatype=KeckData):
                 this is that it runs the appropriate verify method on
                 the data.
     """
+    if type(file) is not Path:
+        file = Path(file).expanduser()
+
     try:
         hdul = fits.open(file, 'readonly')
     except FileNotFoundError as e:
@@ -183,14 +211,33 @@ def fits_keckdata_reader(file, defaultunit='adu', datatype=KeckData):
     except OSError as e:
         print(e.msg)
         raise e
+    # Determine instrument
+    if datatype is None:
+        instrument = None
+        while instrument is None:
+            for hdu in hdul:
+                if hdu.header.get('INSTRUME') is not None:
+                    instrument = hdu.header.get('INSTRUME')
+        if instrument is None:
+            raise UnableToParseInstrument
+
+        if instrument[:5] == 'HIRES':
+            from .visible import HIRESData
+            datatype = HIRESData
+        elif instrument == 'MOSFIRE':
+            from .infrared import MOSFIREData
+            datatype = MOSFIREData
+        else:
+            datatype = KeckData
+
     # Loop though HDUs and read them in as pixel data or table data
     kd = datatype()
     while len(hdul) > 0:
-        print('Extracting HDU')
+        if verbose: print('Extracting HDU')
         hdu = hdul.pop(0)
         kd.headers.append(hdu.header)
         hdu_type = get_hdu_type(hdu)
-        print(f'  Got HDU type = {hdu_type}')
+        if verbose: print(f'  Got HDU type = {hdu_type}')
         if hdu_type == 'header':
             pass
         elif hdu_type == 'tabledata':
@@ -220,8 +267,68 @@ def fits_keckdata_reader(file, defaultunit='adu', datatype=KeckData):
                         unit=hdu.header.get('BUNIT', defaultunit),
                        )
             kd.pixeldata.append(c)
-    print(f'Read in {len(kd.headers)} headers, '
-          f'{len(kd.pixeldata)} sets of pixel data, '
-          f'and {len(kd.tabledata)} tables')
+    if verbose: print(f'Read in {len(kd.headers)} headers, '
+                      f'{len(kd.pixeldata)} sets of pixel data, '
+                      f'and {len(kd.tabledata)} tables')
     kd.verify()
     return kd
+
+
+##-------------------------------------------------------------------------
+## KeckDataList
+##-------------------------------------------------------------------------
+class KeckDataList(object):
+    """An object to manage lists of KeckData objects.
+    
+    Attributes:
+    kds -- a list of KeckData objects.
+    len -- the number of KeckData objects in the list
+    kdtype -- the type of KeckData object contained in the list.
+              e.g. `KeckData`, `HIRESData`, `MOSFIREData`
+    """
+    def __init__(self, input, verbose=False):
+        assert type(input) == list
+        self.frames = []
+        for item in input:
+            if type(item) == str:
+                p = Path(str)
+                if p.exists():
+                    try:
+                        kd = fits_reader(p, verbose=verbose)
+                        self.frames.append(kd)
+                    except:
+                        pass
+            elif type(item) in [Path, PosixPath]:
+                if item.exists():
+                    try:
+                        kd = fits_reader(item, verbose=verbose)
+                        self.frames.append(kd)
+                    except:
+                        print(f"WARNING: Unable to read: {item}")
+                        raise
+                else:
+                    print(f"WARNING: File not found: {item}")
+            elif issubclass(type(item), KeckData):
+                self.frames.append(item)
+
+        self.len = len(self.frames)
+
+        # Verify all input object have the same number of pixeldata arrays
+        pixeldata_lengths = set([len(kd.pixeldata) for kd in self.frames])
+        if len(pixeldata_lengths) > 1:
+            raise IncompatiblePixelData(
+                  'Input files have insconsistent pixel data ')
+
+        # Determine which KeckData type this is
+        kdtypes = set([type(kd) for kd in self.frames])
+        if len(kdtypes) > 1:
+            raise IncompatiblePixelData(
+                  'Input KeckData objects are not all of the same type: {kdtypes}')
+        self.kdtype = kdtypes.pop()
+
+    def pop(self):
+        '''Return one object from the list and remove it from the list.
+        '''
+        self.len -= 1
+        return self.frames.pop()
+        
