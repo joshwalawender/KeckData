@@ -9,11 +9,22 @@ from astropy.io import fits
 from astropy import stats
 import ccdproc
 
-from .. import create_log
 from .. import KeckData, KeckDataList
 
-name = 'analysis'
-log = create_log(name, loglevel='INFO')
+
+##-------------------------------------------------------------------------
+## Create logger object
+##-------------------------------------------------------------------------
+import logging
+log = logging.getLogger('analysis')
+log.setLevel(logging.INFO)
+## Set up console output
+LogConsoleHandler = logging.StreamHandler()
+LogConsoleHandler.setLevel(logging.DEBUG)
+LogFormat = logging.Formatter('%(asctime)s %(levelname)8s: %(message)s',
+                              datefmt='%Y-%m-%d %H:%M:%S')
+LogConsoleHandler.setFormatter(LogFormat)
+log.addHandler(LogConsoleHandler)
 
 
 def get_mode(input):
