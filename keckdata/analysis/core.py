@@ -39,8 +39,8 @@ def get_mode(input):
     else:
         data = input.ravel()
     
-    bmin = np.floor(min(data)) - 1./2.
-    bmax = np.ceil(max(data)) + 1./2.
+    bmin = np.floor(min(data)) - 0.5
+    bmax = np.ceil(max(data)) + 0.5
     bins = np.arange(bmin,bmax,1)
     hist, bins = np.histogram(data, bins=bins)
     centers = (bins[:-1] + bins[1:]) / 2

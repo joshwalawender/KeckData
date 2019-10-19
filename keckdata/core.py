@@ -143,6 +143,12 @@ class KeckData(object):
         """
         return self.get('EXPTIME')
 
+    def filename(self):
+        return self.get('KOAID', None)
+
+    def obstime(self):
+        return self.get('DATE', None)
+
 
 ##-------------------------------------------------------------------------
 ## Get HDU Type

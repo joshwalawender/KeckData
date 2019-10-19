@@ -38,3 +38,6 @@ class HIRESData(KeckData):
             return float(self.get('DARKTIME'))
         else:
             return float(self.get('EXPTIME'))
+
+    def obstime(self):
+        return self.get('DATE', None)
