@@ -11,6 +11,26 @@ from astropy.table import Table
 
 
 ##-------------------------------------------------------------------------
+## Handle FITS Section Strings in Headers
+##-------------------------------------------------------------------------
+def split_fits_section(fitssec):
+    '''Split a fits section string such as "[100:300,600:900]"
+    '''
+    xr, yr = fitssec.strip('[').strip(']').split(',')
+    x1, x2 = xr.split(':')
+    y1, y2 = yr.split(':')
+    cutout = {'x1': min([ int(x1), int(x2) ]),
+              'x2': max([ int(x1), int(x2) ]),
+              'y1': min([ int(y1), int(y2) ]),
+              'y2': max([ int(y1), int(y2) ]),
+              'xreverse': (x1 > x2),
+              'yreverse': (y1 > y2),
+              }
+    return cutout
+
+
+
+##-------------------------------------------------------------------------
 ## KeckData Exceptions
 ##-------------------------------------------------------------------------
 class KeckDataError(Exception):
@@ -148,6 +168,53 @@ class KeckData(object):
 
     def obstime(self):
         return self.get('DATE', None)
+
+    def iraf_mosaic(self, fordisplay=True):
+        '''Using the SETSEC and DATASEC keywords in the header, form a mosaic
+        version of the data with all pixeldata arrays combined in to a single
+        CCDData object.
+        '''
+        for i,pd in enumerate(self.pixeldata):
+            try:
+                DETSEC = split_fits_section(pd.header.get('DETSEC'))
+            except:
+                pass
+            else:
+                if i == 0:
+                    mosaic_sec = {'x1': DETSEC['x1'],
+                                  'x2': DETSEC['x2'],
+                                  'y1': DETSEC['y1'],
+                                  'y2': DETSEC['y2'],
+                                  }
+                else:
+                    mosaic_sec['x1'] = min([ mosaic_sec['x1'],  DETSEC['x1'] ])
+                    mosaic_sec['x2'] = max([ mosaic_sec['x2'],  DETSEC['x2'] ])
+                    mosaic_sec['y1'] = min([ mosaic_sec['y1'],  DETSEC['y1'] ])
+                    mosaic_sec['y2'] = max([ mosaic_sec['y2'],  DETSEC['y2'] ])
+
+        mosaic_size = (mosaic_sec['y2'] - mosaic_sec['y1'] + 1, mosaic_sec['x2'] - mosaic_sec['x1'] + 1)
+
+        unit = set([pd.unit for pd in self.pixeldata]).pop()
+        mosaic = CCDData(data=np.zeros(mosaic_size), unit=unit )
+        for i,pd in enumerate(self.pixeldata):
+            try: 
+                DATASEC = split_fits_section(pd.header.get('DATASEC'))
+                imagesection = pd[DATASEC['y1']-1:DATASEC['y2']-1, DATASEC['x1']-1:DATASEC['x2']-1]
+            except:
+                pass
+            else:
+                if DATASEC['xreverse'] is True:
+                    np.fliplr(imagesection)
+                if DATASEC['yreverse'] is True:
+                    np.flipud(imagesection)
+                DETSEC = split_fits_section(pd.header.get('DETSEC'))
+                if fordisplay is True:
+                    imagesection -= np.percentile(imagesection.data, 0.1)
+                mosaic.data[DETSEC['y1']-1:DETSEC['y2']-1, DETSEC['x1']-1:DETSEC['x2']-1] = imagesection.data
+        self.mosaic = mosaic
+        return mosaic
+
+
 
 
 ##-------------------------------------------------------------------------
