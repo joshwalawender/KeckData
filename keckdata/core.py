@@ -170,17 +170,18 @@ class KeckData(object):
         return self.get('DATE', None)
 
     def iraf_mosaic(self, fordisplay=True):
-        '''Using the SETSEC and DATASEC keywords in the header, form a mosaic
+        '''Using the DETSEC and DATASEC keywords in the header, form a mosaic
         version of the data with all pixeldata arrays combined in to a single
         CCDData object.
         '''
+        mosaic_sec = None
         for i,pd in enumerate(self.pixeldata):
             try:
                 DETSEC = split_fits_section(pd.header.get('DETSEC'))
             except:
                 pass
             else:
-                if i == 0:
+                if mosaic_sec is None:
                     mosaic_sec = {'x1': DETSEC['x1'],
                                   'x2': DETSEC['x2'],
                                   'y1': DETSEC['y1'],

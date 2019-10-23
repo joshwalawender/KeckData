@@ -1,6 +1,9 @@
 from . import *
 
 
+##-------------------------------------------------------------------------
+## HIRES
+##-------------------------------------------------------------------------
 class HIRESData(KeckData):
     """Class to represent HIRES data.
     """
@@ -38,6 +41,49 @@ class HIRESData(KeckData):
             return float(self.get('DARKTIME'))
         else:
             return float(self.get('EXPTIME'))
+
+    def obstime(self):
+        return self.get('DATE', None)
+
+
+
+##-------------------------------------------------------------------------
+## LRIS Blue
+##-------------------------------------------------------------------------
+class LRISBlueData(KeckData):
+    """Class to represent LRIS Blue data.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instrument = 'LRISb'
+
+    def verify(self):
+        """Verifies that the data which was read in matches an expected pattern
+        """
+        if len(self.headers) != 5:
+            raise IncorrectNumberOfExtensions("header", "4", self)
+        if len(self.pixeldata) not in [1, 2, 3, 4]:
+            raise IncorrectNumberOfExtensions("pixel", "1, 2, 3, or 4", self)
+        if len(self.tabledata) != 0:
+            raise IncorrectNumberOfExtensions("table", "0", self)
+
+    def type(self):
+        if self.get('OBSTYPE').upper() == 'BIAS':
+            return 'BIAS'
+        elif self.get('OBSTYPE').upper() == 'DARK':
+            return 'DARK'
+        elif self.get('OBSTYPE').upper() == 'INTFLAT':
+            return 'INTFLAT'
+        else:
+            return None
+
+    def filename(self):
+        return f"{self.get('OUTFILE')}{int(self.get('FRAMENO')):04d}.fits"
+
+    def exptime(self):
+        """Return the exposure time in seconds.
+        """
+        return float(self.get('TTIME'))
 
     def obstime(self):
         return self.get('DATE', None)
