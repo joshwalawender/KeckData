@@ -29,7 +29,6 @@ def split_fits_section(fitssec):
     return cutout
 
 
-
 ##-------------------------------------------------------------------------
 ## KeckData Exceptions
 ##-------------------------------------------------------------------------
@@ -94,10 +93,13 @@ class KeckData(object):
         the result.  This uses the CCDData object's add method and
         simply loops over all elements of the pixeldata list.
         """
-        if len(self.pixeldata) != len(kd2.pixeldata):
-            raise IncompatiblePixelData
-        for i,pd in enumerate(self.pixeldata):
-            self.pixeldata[i] = pd.add(kd2.pixeldata[i])
+        if issubclass(type(kd2), KeckData):
+            if len(self.pixeldata) != len(kd2.pixeldata):
+                raise IncompatiblePixelData
+            for i,pd in enumerate(self.pixeldata):
+                self.pixeldata[i] = pd.add(kd2.pixeldata[i])
+        elif type(kd2) in [float, int]:
+            self.pixeldata[i] = pd.add(kd2)
         return self
 
     def subtract(self, kd2):
@@ -106,10 +108,13 @@ class KeckData(object):
         subtract method and simply loops over all elements of
         the pixeldata list.
         """
-        if len(self.pixeldata) != len(kd2.pixeldata):
-            raise IncompatiblePixelData
-        for i,pd in enumerate(self.pixeldata):
-            self.pixeldata[i] = pd.subtract(kd2.pixeldata[i])
+        if issubclass(type(kd2), KeckData):
+            if len(self.pixeldata) != len(kd2.pixeldata):
+                raise IncompatiblePixelData
+            for i,pd in enumerate(self.pixeldata):
+                self.pixeldata[i] = pd.subtract(kd2.pixeldata[i])
+        elif type(kd2) in [float, int]:
+            self.pixeldata[i] = pd.subtract(kd2)
         return self
 
     def multiply(self, kd2):
@@ -118,10 +123,13 @@ class KeckData(object):
         multiply method and simply loops over all elements of
         the pixeldata list.
         """
-        if len(self.pixeldata) != len(kd2.pixeldata):
-            raise IncompatiblePixelData
-        for i,pd in enumerate(self.pixeldata):
-            self.pixeldata[i] = pd.multiply(kd2.pixeldata[i])
+        if issubclass(type(kd2), KeckData):
+            if len(self.pixeldata) != len(kd2.pixeldata):
+                raise IncompatiblePixelData
+            for i,pd in enumerate(self.pixeldata):
+                self.pixeldata[i] = pd.multiply(kd2.pixeldata[i])
+        elif type(kd2) in [float, int]:
+            self.pixeldata[i] = pd.multiply(kd2)
         return self
 
     def get(self, kw, mode=None):
@@ -175,9 +183,16 @@ class KeckData(object):
         CCDData object.
         '''
         mosaic_sec = None
+
+        CCDNAMES = set( [pd.header.get('CCDNAME') for pd in self.pixeldata] )
+        EXTNAMES = set( [pd.header.get('EXTNAME') for pd in self.pixeldata] )
+
+
         for i,pd in enumerate(self.pixeldata):
             try:
                 DETSEC = split_fits_section(pd.header.get('DETSEC'))
+                CCDNAME = pd.header.get('CCDNAME')
+                EXTNAME = pd.header.get('EXTNAME')
             except:
                 pass
             else:
@@ -186,12 +201,16 @@ class KeckData(object):
                                   'x2': DETSEC['x2'],
                                   'y1': DETSEC['y1'],
                                   'y2': DETSEC['y2'],
+                                  'CCDNAMES': [CCDNAME],
+                                  'EXTNAMES': [EXTNAME],
                                   }
                 else:
                     mosaic_sec['x1'] = min([ mosaic_sec['x1'],  DETSEC['x1'] ])
                     mosaic_sec['x2'] = max([ mosaic_sec['x2'],  DETSEC['x2'] ])
                     mosaic_sec['y1'] = min([ mosaic_sec['y1'],  DETSEC['y1'] ])
                     mosaic_sec['y2'] = max([ mosaic_sec['y2'],  DETSEC['y2'] ])
+                    mosaic_sec['CCDNAMES'].append(CCDNAME)
+                    mosaic_sec['EXTNAMES'].append(EXTNAME)
 
         mosaic_size = (mosaic_sec['y2'] - mosaic_sec['y1'] + 1, mosaic_sec['x2'] - mosaic_sec['x1'] + 1)
 
