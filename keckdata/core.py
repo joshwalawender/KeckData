@@ -182,59 +182,109 @@ class KeckData(object):
         version of the data with all pixeldata arrays combined in to a single
         CCDData object.
         '''
-        mosaic_sec = None
-
-        CCDNAMES = set( [pd.header.get('CCDNAME') for pd in self.pixeldata] )
-        EXTNAMES = set( [pd.header.get('EXTNAME') for pd in self.pixeldata] )
-
-
+        CCDs = {}
         for i,pd in enumerate(self.pixeldata):
-            try:
-                DETSEC = split_fits_section(pd.header.get('DETSEC'))
-                CCDNAME = pd.header.get('CCDNAME')
-                EXTNAME = pd.header.get('EXTNAME')
-            except:
-                pass
+            CCDNAME = pd.header.get('CCDNAME')
+            EXTNAME = pd.header.get('EXTNAME')
+            DETSEC = pd.header.get('DETSEC')
+            DATASEC = pd.header.get('DATASEC')
+            if CCDNAME not in CCDs.keys():
+                CCDs[CCDNAME] = {'CCDNAME': CCDNAME,
+                                 'EXTNAMES': [EXTNAME],
+                                 'DETSECS': [DETSEC],
+                                 'DATASECS': [DATASEC],
+                                 'PDid': [i],
+                                }
             else:
-                if mosaic_sec is None:
-                    mosaic_sec = {'x1': DETSEC['x1'],
-                                  'x2': DETSEC['x2'],
-                                  'y1': DETSEC['y1'],
-                                  'y2': DETSEC['y2'],
-                                  'CCDNAMES': [CCDNAME],
-                                  'EXTNAMES': [EXTNAME],
-                                  }
+                CCDs[CCDNAME]['EXTNAMES'].append(EXTNAME)
+                CCDs[CCDNAME]['DETSECS'].append(DETSEC)
+                CCDs[CCDNAME]['DATASECS'].append(DATASEC)
+                CCDs[CCDNAME]['PDid'].append(i)
+
+        # Form an intermediate CCDSEC which is the position of the data
+        # within each CCD (i.e. combine the amps)
+        for CCD in CCDs.keys():
+            ccd_sec = None
+            for j,extname in enumerate(CCDs[CCD]['EXTNAMES']):
+                DETSEC = split_fits_section(CCDs[CCD]['DETSECS'][j])
+                if ccd_sec is None:
+                    ccd_sec = {'x1': DETSEC['x1'],
+                               'x2': DETSEC['x2'],
+                               'y1': DETSEC['y1'],
+                               'y2': DETSEC['y2'],
+                               }
                 else:
-                    mosaic_sec['x1'] = min([ mosaic_sec['x1'],  DETSEC['x1'] ])
-                    mosaic_sec['x2'] = max([ mosaic_sec['x2'],  DETSEC['x2'] ])
-                    mosaic_sec['y1'] = min([ mosaic_sec['y1'],  DETSEC['y1'] ])
-                    mosaic_sec['y2'] = max([ mosaic_sec['y2'],  DETSEC['y2'] ])
-                    mosaic_sec['CCDNAMES'].append(CCDNAME)
-                    mosaic_sec['EXTNAMES'].append(EXTNAME)
+                    ccd_sec['x1'] = min([ ccd_sec['x1'],  DETSEC['x1'] ])
+                    ccd_sec['x2'] = max([ ccd_sec['x2'],  DETSEC['x2'] ])
+                    ccd_sec['y1'] = min([ ccd_sec['y1'],  DETSEC['y1'] ])
+                    ccd_sec['y2'] = max([ ccd_sec['y2'],  DETSEC['y2'] ])
+            CCDs[CCD]['CCDSEC'] = ccd_sec
 
-        mosaic_size = (mosaic_sec['y2'] - mosaic_sec['y1'] + 1, mosaic_sec['x2'] - mosaic_sec['x1'] + 1)
+        # Figure out the grid parameters of the chips in the "detector" focal plane
+        chips = []
+        for CCD in CCDs.keys():
+            CCDSEC = CCDs[CCD]['CCDSEC']
+            chips.append( [CCD, CCDSEC['x1'], CCDSEC['x2'], CCDSEC['y1'], CCDSEC['y2']] )
+        chips.sort(key=lambda c: c[3])
+        chips.sort(key=lambda c: c[1])
 
+        x1s = sorted( list( set( [c[1] for c in chips] ) ) )
+        y1s = sorted( list( set( [c[3] for c in chips] ) ) )
+        chip_grid = (len(x1s), len(y1s))
+        ngrid = len(x1s) * len(y1s)
+        assert ngrid == len(CCDs)
+
+        # Using the CCDSEC info, form the data for each CCD chip
         unit = set([pd.unit for pd in self.pixeldata]).pop()
-        mosaic = CCDData(data=np.zeros(mosaic_size), unit=unit )
-        for i,pd in enumerate(self.pixeldata):
-            try: 
-                DATASEC = split_fits_section(pd.header.get('DATASEC'))
-                imagesection = pd[DATASEC['y1']-1:DATASEC['y2']-1, DATASEC['x1']-1:DATASEC['x2']-1]
-            except:
-                pass
-            else:
+        for CCD in CCDs.keys():
+            CCDSEC = CCDs[CCD]['CCDSEC']
+            ccd_size = (CCDSEC['y2'] - CCDSEC['y1'] + 1, CCDSEC['x2'] - CCDSEC['x1'] + 1)
+            CCDs[CCD]['data'] = CCDData(data=np.zeros(ccd_size), unit=unit )
+            for j,extname in enumerate(CCDs[CCD]['EXTNAMES']):
+                PDid = CCDs[CCD]['PDid'][j]
+                DETSEC = split_fits_section(CCDs[CCD]['DETSECS'][j])
+                DATASEC = split_fits_section(CCDs[CCD]['DATASECS'][j])
+                imagesection = self.pixeldata[PDid][DATASEC['y1']-1:DATASEC['y2'], DATASEC['x1']-1:DATASEC['x2']]
                 if DATASEC['xreverse'] is True:
                     np.fliplr(imagesection)
                 if DATASEC['yreverse'] is True:
                     np.flipud(imagesection)
-                DETSEC = split_fits_section(pd.header.get('DETSEC'))
                 if fordisplay is True:
                     imagesection -= np.percentile(imagesection.data, 0.1)
-                mosaic.data[DETSEC['y1']-1:DETSEC['y2']-1, DETSEC['x1']-1:DETSEC['x2']-1] = imagesection.data
+                DETSEC['x2'] -= (CCDSEC['x1']-1)
+                DETSEC['x1'] -= (CCDSEC['x1']-1)
+                DETSEC['y2'] -= (CCDSEC['y1']-1)
+                DETSEC['y1'] -= (CCDSEC['y1']-1)
+                CCDs[CCD]['data'].data[DETSEC['y1']-1:DETSEC['y2'], DETSEC['x1']-1:DETSEC['x2']] = imagesection.data
+
+        # Assemble the "detector" mosaic
+        xgap = 20
+        ygap = 40
+
+        for i,chip in enumerate(chips):
+            CCD, x1, x2, y1, y2 = chip
+            gridxpos = x1s.index(x1)
+            gridypos = y1s.index(y1)
+            CCDSEC = CCDs[CCD]['CCDSEC']
+            x1 += (2*gridxpos-1)*xgap if gridxpos > 0 else 0
+            x2 += (2*gridxpos+1)*xgap
+            y1 += (2*gridypos-1)*ygap if gridypos > 0 else 0
+            y2 += (2*gridypos+1)*ygap
+
+            chips[i] = [CCD, x1, x2, y1, y2]
+
+        xmax = max([chip[2] for chip in chips])
+        ymax = max([chip[4] for chip in chips])
+        mosaic = CCDData(data=np.zeros((xmax, ymax)), unit=unit )
+        for i,chip in enumerate(chips):
+            CCD, x1, x2, y1, y2 = chip
+            x1in = x1+xgap-1 if x1 > 1 else x1-1
+            x2in = x1in + CCDs[CCD]['data'].data.shape[1]
+            y1in = y1+ygap-1 if y1 > 1 else y1-1
+            y2in = y1in + CCDs[CCD]['data'].data.shape[0]
+            mosaic.data[y1in:y2in, x1in:x2in] = CCDs[CCD]['data'].data
         self.mosaic = mosaic
-        return mosaic
-
-
+        return self.mosaic
 
 
 ##-------------------------------------------------------------------------
