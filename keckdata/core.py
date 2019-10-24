@@ -79,6 +79,8 @@ class KeckData(object):
         self.tabledata = []
         self.headers = []
         self.instrument = None
+        self.xgap = 0
+        self.ygap = 0
 
     def verify(self):
         """Method to check the data against expectations. For the 
@@ -171,17 +173,29 @@ class KeckData(object):
         """
         return self.get('EXPTIME')
 
+    def binning(self):
+        """Return the exposure binning as an (x, y) tuple.
+        """
+        binning_str = self.get('BINNING')
+        bx, by = binning_str.split(',')
+        return ( int(bx.strip()), int(by.strip()) )
+
     def filename(self):
         return self.get('KOAID', None)
 
     def obstime(self):
         return self.get('DATE', None)
 
-    def iraf_mosaic(self, fordisplay=True):
+    def iraf_mosaic(self, fordisplay=True, xgap=None, ygap=None):
         '''Using the DETSEC and DATASEC keywords in the header, form a mosaic
         version of the data with all pixeldata arrays combined in to a single
         CCDData object.
         '''
+        binx, biny = self.binning()
+        if xgap is None:
+            xgap = int(self.xgap/binx)
+        if ygap is None:
+            ygap = int(self.ygap/biny)
         CCDs = {}
         for i,pd in enumerate(self.pixeldata):
             CCDNAME = pd.header.get('CCDNAME')
@@ -224,7 +238,13 @@ class KeckData(object):
         chips = []
         for CCD in CCDs.keys():
             CCDSEC = CCDs[CCD]['CCDSEC']
-            chips.append( [CCD, CCDSEC['x1'], CCDSEC['x2'], CCDSEC['y1'], CCDSEC['y2']] )
+#             chips.append( [CCD, CCDSEC['x1'], CCDSEC['x2'], CCDSEC['y1'], CCDSEC['y2']] )
+            chips.append( [CCD,
+                           int(np.ceil(CCDSEC['x1']/binx)),
+                           int(np.ceil(CCDSEC['x2']/binx)),
+                           int(np.ceil(CCDSEC['y1']/biny)),
+                           int(np.ceil(CCDSEC['y2']/biny)),
+                          ] )
         chips.sort(key=lambda c: c[3])
         chips.sort(key=lambda c: c[1])
 
@@ -238,8 +258,11 @@ class KeckData(object):
         unit = set([pd.unit for pd in self.pixeldata]).pop()
         for CCD in CCDs.keys():
             CCDSEC = CCDs[CCD]['CCDSEC']
-            ccd_size = (CCDSEC['y2'] - CCDSEC['y1'] + 1, CCDSEC['x2'] - CCDSEC['x1'] + 1)
-            CCDs[CCD]['data'] = CCDData(data=np.zeros(ccd_size), unit=unit )
+#             ccd_size = (CCDSEC['y2'] - CCDSEC['y1'] + 1, CCDSEC['x2'] - CCDSEC['x1'] + 1)
+#             CCDs[CCD]['data'] = CCDData(data=np.zeros(ccd_size), unit=unit )
+            ccd_size_y = int((CCDSEC['y2'] - CCDSEC['y1'] + 1)/biny)
+            ccd_size_x = int((CCDSEC['x2'] - CCDSEC['x1'] + 1)/binx)
+            CCDs[CCD]['data'] = CCDData(data=np.zeros((ccd_size_y, ccd_size_x)), unit=unit )
             for j,extname in enumerate(CCDs[CCD]['EXTNAMES']):
                 PDid = CCDs[CCD]['PDid'][j]
                 DETSEC = split_fits_section(CCDs[CCD]['DETSECS'][j])
@@ -258,31 +281,27 @@ class KeckData(object):
                 CCDs[CCD]['data'].data[DETSEC['y1']-1:DETSEC['y2'], DETSEC['x1']-1:DETSEC['x2']] = imagesection.data
 
         # Assemble the "detector" mosaic
-        xgap = 20
-        ygap = 40
-
         for i,chip in enumerate(chips):
             CCD, x1, x2, y1, y2 = chip
             gridxpos = x1s.index(x1)
             gridypos = y1s.index(y1)
             CCDSEC = CCDs[CCD]['CCDSEC']
             x1 += (2*gridxpos-1)*xgap if gridxpos > 0 else 0
-            x2 += (2*gridxpos+1)*xgap
+            x2 += (2*gridxpos+1)*xgap if gridxpos < len(x1s)-1 else (2*gridxpos)*xgap
             y1 += (2*gridypos-1)*ygap if gridypos > 0 else 0
-            y2 += (2*gridypos+1)*ygap
-
+            y2 += (2*gridypos+1)*ygap if gridypos < len(y1s)-1 else (2*gridypos)*ygap
             chips[i] = [CCD, x1, x2, y1, y2]
 
         xmax = max([chip[2] for chip in chips])
         ymax = max([chip[4] for chip in chips])
-        mosaic = CCDData(data=np.zeros((xmax, ymax)), unit=unit )
+        mosaic = CCDData(data=np.zeros((ymax, xmax)), unit=unit )
         for i,chip in enumerate(chips):
             CCD, x1, x2, y1, y2 = chip
             x1in = x1+xgap-1 if x1 > 1 else x1-1
             x2in = x1in + CCDs[CCD]['data'].data.shape[1]
             y1in = y1+ygap-1 if y1 > 1 else y1-1
             y2in = y1in + CCDs[CCD]['data'].data.shape[0]
-            mosaic.data[y1in:y2in, x1in:x2in] = CCDs[CCD]['data'].data
+            mosaic.data[y1in:y2in,x1in:x2in] = CCDs[CCD]['data'].data
         self.mosaic = mosaic
         return self.mosaic
 
@@ -367,10 +386,20 @@ def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
         if instrument[:5] == 'HIRES':
             from .visible import HIRESData
             datatype = HIRESData
-        elif instrument == 'MOSFIRE':
+        elif instrument.strip() == 'LRISBLUE':
+            from .visible import LRISBlueData
+            datatype = LRISBlueData
+        elif instrument.strip() == 'LRIS':
+            from .visible import LRISRedData
+            datatype = LRISRedData
+        elif instrument[:6] == 'DEIMOS':
+            from .visible import DEIMOSData
+            datatype = DEIMOSData
+        elif instrument.strip() == 'MOSFIRE':
             from .infrared import MOSFIREData
             datatype = MOSFIREData
         else:
+            print(f'Using generic KeckData object for "{instrument}"')
             datatype = KeckData
 
     # Loop though HDUs and read them in as pixel data or table data

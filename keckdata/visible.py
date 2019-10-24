@@ -10,6 +10,8 @@ class HIRESData(KeckData):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.instrument = 'HIRES'
+        self.xgap = 50
+        self.ygap = 50
 
     def verify(self):
         """Verifies that the data which was read in matches an expected pattern
@@ -56,6 +58,8 @@ class LRISBlueData(KeckData):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.instrument = 'LRISb'
+        self.xgap = 50
+        self.ygap = 50
 
     def verify(self):
         """Verifies that the data which was read in matches an expected pattern
@@ -87,3 +91,29 @@ class LRISBlueData(KeckData):
 
     def obstime(self):
         return self.get('DATE', None)
+
+
+##-------------------------------------------------------------------------
+## LRIS Red
+##-------------------------------------------------------------------------
+class LRISRedData(KeckData):
+    """Class to represent LRIS Red data.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instrument = 'LRISr'
+        self.xgap = 50
+        self.ygap = 50
+
+
+##-------------------------------------------------------------------------
+## DEIMOS
+##-------------------------------------------------------------------------
+class DEIMOSData(KeckData):
+    """Class to represent DEIMOS data.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instrument = 'DEIMOS'
+        self.xgap = 50
+        self.ygap = 50
