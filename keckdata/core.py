@@ -297,9 +297,9 @@ class KeckData(object):
         mosaic = CCDData(data=np.zeros((ymax, xmax)), unit=unit )
         for i,chip in enumerate(chips):
             CCD, x1, x2, y1, y2 = chip
-            x1in = x1+xgap-1 if x1 > 1 else x1-1
+            x1in = x1+xgap-1 if x1 > 1 else 0
             x2in = x1in + CCDs[CCD]['data'].data.shape[1]
-            y1in = y1+ygap-1 if y1 > 1 else y1-1
+            y1in = y1+ygap-1 if y1 > 1 else 0
             y2in = y1in + CCDs[CCD]['data'].data.shape[0]
             mosaic.data[y1in:y2in,x1in:x2in] = CCDs[CCD]['data'].data
         self.mosaic = mosaic
