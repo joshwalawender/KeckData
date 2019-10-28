@@ -327,7 +327,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                     sig_fit = np.linspace(min(signal), max(signal), 50)
                     var_fit = [gainfits(x) for x in sig_fit]
                     ax.semilogx(sig_fit, var_fit, 'k-', alpha=0.7,
-                            label='Gain={g.value:.2f}e/ADU')
+                            label=f'Gain={g.value:.2f}e/ADU')
                 else:
                     ax.plot(x, y, 'ko', alpha=1.0, markersize=8, markeredgewidth=0)
                     sig_fit = np.linspace(min(signal), max(signal), 50)
@@ -338,7 +338,12 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                 ax.set_xlabel('Mean Level (ADU)')
                 ax.grid()
                 ax.legend(loc='upper left', fontsize=10)
-            plot_file = Path(f'Gain_{j}.png')
+
+            obstime = flat_frames.frames[0].obstime().replace(':', '').replace('/', '')
+            if obstime is None:
+                plot_file = Path(f'gain_ext{i}.png')
+            else:
+                plot_file = Path(f'gain_ext{i}_{obstime}.png')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
 
             log.info('  Generating figure with linearity plot')
@@ -359,7 +364,10 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                 ax.set_ylabel('Signal Decrement (%) [(counts-fit)/counts]')
             #     plt.ylim(np.floor(min(decrements)), np.ceil(max(decrements)))
                 ax.grid()
-            plot_file = Path(f'Linearity_{j}.png')
+            if obstime is None:
+                plot_file = Path(f'linearity_ext{i}.png')
+            else:
+                plot_file = Path(f'linearity_ext{i}_{obstime}.png')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
     return u.Quantity(gains)
 
