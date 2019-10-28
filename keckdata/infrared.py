@@ -46,7 +46,10 @@ class MOSFIREData(KeckData):
         # Determine Image Type
         # Dark frame
         if 'dark' in obsmode.lower() and not arcpower:
-            return 'DARK'
+            if self.exptime() < 2:
+                return 'BIAS'
+            else:
+                return 'DARK'
         else:
             # arclamp
             if dustCover == 'closed':
@@ -83,3 +86,8 @@ class MOSFIREData(KeckData):
         """
         exptime = float(self.get('TRUITIME')) * int(self.get('COADDONE'))
         return exptime
+
+    def obstime(self):
+        date = self.get('DATE-OBS', None)
+        time = self.get('UTC', None)
+        return f"{date}T{time}"
