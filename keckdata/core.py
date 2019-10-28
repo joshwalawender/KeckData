@@ -238,7 +238,6 @@ class KeckData(object):
         chips = []
         for CCD in CCDs.keys():
             CCDSEC = CCDs[CCD]['CCDSEC']
-#             chips.append( [CCD, CCDSEC['x1'], CCDSEC['x2'], CCDSEC['y1'], CCDSEC['y2']] )
             chips.append( [CCD,
                            int(np.ceil(CCDSEC['x1']/binx)),
                            int(np.ceil(CCDSEC['x2']/binx)),
@@ -258,8 +257,6 @@ class KeckData(object):
         unit = set([pd.unit for pd in self.pixeldata]).pop()
         for CCD in CCDs.keys():
             CCDSEC = CCDs[CCD]['CCDSEC']
-#             ccd_size = (CCDSEC['y2'] - CCDSEC['y1'] + 1, CCDSEC['x2'] - CCDSEC['x1'] + 1)
-#             CCDs[CCD]['data'] = CCDData(data=np.zeros(ccd_size), unit=unit )
             ccd_size_y = int((CCDSEC['y2'] - CCDSEC['y1'] + 1)/biny)
             ccd_size_x = int((CCDSEC['x2'] - CCDSEC['x1'] + 1)/binx)
             CCDs[CCD]['data'] = CCDData(data=np.zeros((ccd_size_y, ccd_size_x)), unit=unit )
@@ -282,26 +279,27 @@ class KeckData(object):
 
         # Assemble the "detector" mosaic
         for i,chip in enumerate(chips):
-            CCD, x1, x2, y1, y2 = chip
-            gridxpos = x1s.index(x1)
-            gridypos = y1s.index(y1)
+            CCD, CCDx1, CCDx2, CCDy1, CCDy2 = chip
+            gridxpos = x1s.index(CCDx1)
+            gridypos = y1s.index(CCDy1)
             CCDSEC = CCDs[CCD]['CCDSEC']
-            x1 += (2*gridxpos-1)*xgap if gridxpos > 0 else 0
-            x2 += (2*gridxpos+1)*xgap if gridxpos < len(x1s)-1 else (2*gridxpos)*xgap
-            y1 += (2*gridypos-1)*ygap if gridypos > 0 else 0
-            y2 += (2*gridypos+1)*ygap if gridypos < len(y1s)-1 else (2*gridypos)*ygap
-            chips[i] = [CCD, x1, x2, y1, y2]
+            CCDx1 += (2*gridxpos-1)*xgap if gridxpos > 0 else 0
+            CCDx2 += (2*gridxpos+1)*xgap if gridxpos < len(x1s)-1 else (2*gridxpos)*xgap
+            CCDy1 += (2*gridypos-1)*ygap if gridypos > 0 else 0
+            CCDy2 += (2*gridypos+1)*ygap if gridypos < len(y1s)-1 else (2*gridypos)*ygap
+            chips[i] = [CCD, CCDx1, CCDx2, CCDy1, CCDy2, gridxpos, gridypos]
 
         xmax = max([chip[2] for chip in chips])
         ymax = max([chip[4] for chip in chips])
         mosaic = CCDData(data=np.zeros((ymax, xmax)), unit=unit )
         for i,chip in enumerate(chips):
-            CCD, x1, x2, y1, y2 = chip
-            x1in = x1+xgap-1 if x1 > 1 else 0
-            x2in = x1in + CCDs[CCD]['data'].data.shape[1]
-            y1in = y1+ygap-1 if y1 > 1 else 0
-            y2in = y1in + CCDs[CCD]['data'].data.shape[0]
-            mosaic.data[y1in:y2in,x1in:x2in] = CCDs[CCD]['data'].data
+            CCD, CCDx1, CCDx2, CCDy1, CCDy2, gridxpos, gridypos = chip
+            MOSx1 = CCDx1+xgap-1 if gridxpos > 0 else 0
+            MOSx2 = MOSx1 + CCDs[CCD]['data'].data.shape[1]
+            MOSy1 = CCDy1+ygap-1 if gridypos > 0 else 0
+            MOSy2 = MOSy1 + CCDs[CCD]['data'].data.shape[0]
+            mosaic.data[MOSy1:MOSy2,MOSx1:MOSx2] = CCDs[CCD]['data'].data
+    
         self.mosaic = mosaic
         return self.mosaic
 
