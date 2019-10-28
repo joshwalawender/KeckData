@@ -268,10 +268,10 @@ class KeckData(object):
                 DETSEC = split_fits_section(CCDs[CCD]['DETSECS'][j])
                 DATASEC = split_fits_section(CCDs[CCD]['DATASECS'][j])
                 imagesection = self.pixeldata[PDid][DATASEC['y1']-1:DATASEC['y2'], DATASEC['x1']-1:DATASEC['x2']]
-                if DATASEC['xreverse'] is True:
-                    np.fliplr(imagesection)
-                if DATASEC['yreverse'] is True:
-                    np.flipud(imagesection)
+                if DETSEC['xreverse'] is True:
+                    imagesection.data = np.fliplr(imagesection.data)
+                if DETSEC['yreverse'] is True:
+                    imagesection.data = np.flipud(imagesection.data)
                 if fordisplay is True:
                     imagesection -= np.percentile(imagesection.data, 0.1)
                 DETSEC['x2'] -= (CCDSEC['x1']-1)
