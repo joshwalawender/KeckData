@@ -97,6 +97,7 @@ def determine_read_noise(input, master_bias=None, plot=False,
 
 
 def determine_dark_current(input, master_bias=None, plot=False,
+                           nozero=False, usemedian=False,
                            clippingsigma=5, clippingiters=3, trim=0):
     '''
     Determine dark current from a set of dark frames and a master bias.
@@ -124,28 +125,31 @@ def determine_dark_current(input, master_bias=None, plot=False,
             log.debug(f'  Bias Diff (mean, med, std) = {mean.value:.1f}, '\
                       f'{med.value:.1f}, {std.value:.2f}')
             dark_mean[i] = mean.value
-#             dark_median[i] = med.value
+            dark_median[i] = med.value
         dark_means.append(dark_mean)
-#         dark_medians.append(dark_median)
+        dark_medians.append(dark_median)
 
     log.info(f'  Obtained statistics for frames with {len(set(exptimes))} '
              f'different exposure times')
     dark_means = np.array(dark_means)
-#     dark_medians = np.array(dark_medians)
+    dark_medians = np.array(dark_medians)
 
     # Fit Line to Dark Level to Determine Dark Current
     log.info(f"  Determining dark current from")
     exptime_ints = [int(t) for t in exptimes]
-    for t in set(exptime_ints):
+    for t in sorted(set(exptime_ints)):
         log.info(f"    {exptime_ints.count(t)} {t} second darks")
     DC = [None]*npds
     line = models.Linear1D(intercept=0, slope=0)
-    line.intercept.fixed = True
+    if nozero is False:
+        line.intercept.fixed = True
     fitter = fitting.LinearLSQFitter()
     for i in range(npds):
-        dc_fit_mean = fitter(line, exptimes, dark_means[:,i])
-#         dc_fit_median = fitter(line, exptimes, dark_medians[:,i])
-        DC[i] = dc_fit_mean.slope.value * u.adu/u.second
+        if usemedian is False:
+            dc_fit = fitter(line, exptimes, dark_means[:,i])
+        else:
+            dc_fit = fitter(line, exptimes, dark_medians[:,i])
+        DC[i] = dc_fit.slope.value * u.adu/u.second
         log.info(f'  Dark Current is {DC[i]:.3f} for extension {i+1}')
 
         # Plot Dark Current Fit
@@ -158,7 +162,7 @@ def determine_dark_current(input, master_bias=None, plot=False,
             ax.plot(exptimes, dark_means[:,i], 'ko', alpha=1.0,
                     label='mean count level in ADU')
             ax.plot([0, longest_exptime],
-                    [dc_fit_mean(0), dc_fit_mean(longest_exptime)],
+                    [dc_fit(0), dc_fit(longest_exptime)],
                     'k-', alpha=0.3,
                     label=f'dark current = {DC[i].value:.3f} ADU/s')
             plt.xlim(-0.02*longest_exptime, 1.10*longest_exptime)
