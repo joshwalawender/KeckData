@@ -186,7 +186,7 @@ class KeckData(object):
     def obstime(self):
         return self.get('DATE', None)
 
-    def iraf_mosaic(self, fordisplay=True, xgap=None, ygap=None):
+    def iraf_mosaic(self, fordisplay=True, zero=True, xgap=None, ygap=None):
         '''Using the DETSEC and DATASEC keywords in the header, form a mosaic
         version of the data with all pixeldata arrays combined in to a single
         CCDData object.
@@ -253,8 +253,12 @@ class KeckData(object):
         ngrid = len(x1s) * len(y1s)
         assert ngrid == len(CCDs)
 
+#         if fordisplay is True: print(f"Scaling each FITS extension to the same mean")
+#         if zero is True: print(f"Zeroing background level")
+
         # Using the CCDSEC info, form the data for each CCD chip
         unit = set([pd.unit for pd in self.pixeldata]).pop()
+        meanlv = None
         for CCD in CCDs.keys():
             CCDSEC = CCDs[CCD]['CCDSEC']
             ccd_size_y = int((CCDSEC['y2'] - CCDSEC['y1'] + 1)/biny)
@@ -270,7 +274,9 @@ class KeckData(object):
                 if DETSEC['yreverse'] is True:
                     imagesection.data = np.flipud(imagesection.data)
                 if fordisplay is True:
-                    imagesection -= np.percentile(imagesection.data, 0.1)
+                    if meanlv is None:
+                        meanlv = np.percentile(imagesection.data, 0.1) if zero is False else 0
+                    imagesection -= np.percentile(imagesection.data, 0.1) - meanlv
                 DETSEC['x2'] -= (CCDSEC['x1']-1)
                 DETSEC['x1'] -= (CCDSEC['x1']-1)
                 DETSEC['y2'] -= (CCDSEC['y1']-1)
@@ -294,9 +300,9 @@ class KeckData(object):
         mosaic = CCDData(data=np.zeros((ymax, xmax)), unit=unit )
         for i,chip in enumerate(chips):
             CCD, CCDx1, CCDx2, CCDy1, CCDy2, gridxpos, gridypos = chip
-            MOSx1 = CCDx1+xgap-1 if gridxpos > 0 else 0
+            MOSx1 = CCDx1+xgap-1 if gridxpos > 0 else CCDx1-1
             MOSx2 = MOSx1 + CCDs[CCD]['data'].data.shape[1]
-            MOSy1 = CCDy1+ygap-1 if gridypos > 0 else 0
+            MOSy1 = CCDy1+ygap-1 if gridypos > 0 else CCDy1-1
             MOSy2 = MOSy1 + CCDs[CCD]['data'].data.shape[0]
             mosaic.data[MOSy1:MOSy2,MOSx1:MOSx2] = CCDs[CCD]['data'].data
     
