@@ -301,8 +301,10 @@ class KeckData(object):
         for i,chip in enumerate(chips):
             CCD, CCDx1, CCDx2, CCDy1, CCDy2, gridxpos, gridypos = chip
             MOSx1 = CCDx1+xgap-1 if gridxpos > 0 else CCDx1-1
+            MOSx1 = max( [MOSx1, 0] ) # Ensure we're above 0
             MOSx2 = MOSx1 + CCDs[CCD]['data'].data.shape[1]
             MOSy1 = CCDy1+ygap-1 if gridypos > 0 else CCDy1-1
+            MOSy1 = max( [MOSy1, 0] ) # Ensure we're above 0
             MOSy2 = MOSy1 + CCDs[CCD]['data'].data.shape[0]
             mosaic.data[MOSy1:MOSy2,MOSx1:MOSx2] = CCDs[CCD]['data'].data
     
