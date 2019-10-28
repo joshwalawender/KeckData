@@ -62,7 +62,14 @@ def make_master_bias(kdl, clippingsigma=5, clippingiters=3, trim=0):
     else:
         raise KeckDataError
 
-    log.info(f'Making master bias from {kdl.len} frames')
+    biases = [kd for kd in kdl.frames if kd.type() == 'BIAS']
+    if len(biases) > 0:
+        log.info(f'Making master bias from {len(biases)} frames')
+    else:
+        log.error(f'No bias files found in input.  Unable to proceed.')
+        return
+    kdl = KeckDataList(biases)
+    npds = len(kdl.frames[0].pixeldata)
     master_bias_kd = kdl.kdtype()
 
     npds = len(kdl.frames[0].pixeldata)
