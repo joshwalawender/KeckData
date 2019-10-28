@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from astropy import units as u
 from astropy import stats
+from astropy.table import Table, Column
 from astropy.modeling import models, fitting
 from astropy.visualization import (MinMaxInterval, PercentileInterval,
                                    ImageNormalize)
@@ -17,7 +18,7 @@ from .. import KeckData, KeckDataList
 
 
 def determine_read_noise(input, master_bias=None, plot=False,
-                         clippingsigma=5, clippingiters=3, trimpix=0,
+                         clippingsigma=5, clippingiters=3, trim=0,
                          plot_range_std=10,
                          ):
     '''
@@ -36,7 +37,7 @@ def determine_read_noise(input, master_bias=None, plot=False,
         master_bias = make_master_bias(biases,
                                        clippingsigma=clippingsigma,
                                        clippingiters=clippingiters,
-                                       trimpix=trimpix)
+                                       trim=trim)
     else:
         raise KeckDataError(f'Input of type {type(input)} not understood')
 
@@ -46,22 +47,22 @@ def determine_read_noise(input, master_bias=None, plot=False,
     read_noise = []
     for i in range(npds):
         ny, nx = diff.pixeldata[i].shape
-        mean, median, stddev = stats.sigma_clipped_stats(
-                      diff.pixeldata[i][trimpix:ny-trimpix,trimpix:nx-trimpix],
+        mean, median, std = stats.sigma_clipped_stats(
+                      diff.pixeldata[i][trim:ny-trim,trim:nx-trim],
                       sigma=clippingsigma,
                       iters=clippingiters) * u.adu
         mode = get_mode(diff.pixeldata[i])
         log.debug(f'  Bias Diff (mean, med, mode, std) = {mean.value:.1f}, '\
-                  f'{median.value:.1f}, {mode:d}, {stddev.value:.2f}')
+                  f'{median.value:.1f}, {mode:d}, {std.value:.2f}')
 
-        RN = stddev / np.sqrt(1.+1./master_bias.nbiases )
+        RN = std / np.sqrt(1.+1./master_bias.nbiases )
         log.info(f'  Read Noise is {RN:.2f} for extension {i+1}')
         read_noise.append(RN)
 
         # Generate Bias Plots
         if plot is not False:
-            log.info(f'Generating plot for: {bias0.filename()}, frame {i}')
-            data = bias0.pixeldata[i].data[trimpix:ny-trimpix,trimpix:nx-trimpix]
+            log.info(f'  Generating plot for: {bias0.filename()}, frame {i}')
+            data = bias0.pixeldata[i].data[trim:ny-trim,trim:nx-trim]
             std = np.std(data)
             mode = get_mode(data)
             binwidth = int(20*std)
@@ -82,11 +83,12 @@ def determine_read_noise(input, master_bias=None, plot=False,
             plt.grid()
 
             if plot is True:
-                obstime = bias0.obstime()
+                obstime = bias0.obstime().replace(':', '').replace('/', '')
                 if obstime is None:
                     plot_file = Path(f'read_noise_ext{i}.png')
                 else:
                     plot_file = Path(f'read_noise_ext{i}_{obstime}.png')
+                log.info(f'  Generating read noise plot: {plot_file}')
                 plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
             else:
                 plt.show()
@@ -95,7 +97,7 @@ def determine_read_noise(input, master_bias=None, plot=False,
 
 
 def determine_dark_current(input, master_bias=None, plot=False,
-                           clippingsigma=5, clippingiters=3, trimpix=0):
+                           clippingsigma=5, clippingiters=3, trim=0):
     '''
     Determine dark current from a set of dark frames and a master bias.
     '''
@@ -105,10 +107,10 @@ def determine_dark_current(input, master_bias=None, plot=False,
     npds = len(dark_frames.frames[0].pixeldata)
     log.info(f'  Determining dark current for each of {npds} extensions')
 
+    # Get image statistics for each dark frame
     exptimes = []
     dark_means = []
     dark_medians = []
-    
     for dark_frame in dark_frames.frames:
         exptimes.append(dark_frame.exptime())
         dark_diff = dark_frame.subtract(master_bias)
@@ -116,14 +118,13 @@ def determine_dark_current(input, master_bias=None, plot=False,
         dark_median = [None] * npds
         for i in range(npds):
             ny, nx = dark_diff.pixeldata[i].shape
-            mean, median, stddev = stats.sigma_clipped_stats(
-                          dark_diff.pixeldata[i][trimpix:ny-trimpix,trimpix:nx-trimpix],
-                          sigma=clippingsigma,
-                          iters=clippingiters) * u.adu
+            mean, med, std = stats.sigma_clipped_stats(
+                       dark_diff.pixeldata[i][trim:ny-trim,trim:nx-trim],
+                       sigma=clippingsigma, iters=clippingiters) * u.adu
             log.debug(f'  Bias Diff (mean, med, std) = {mean.value:.1f}, '\
-                      f'{median.value:.1f}, {stddev.value:.2f}')
+                      f'{med.value:.1f}, {std.value:.2f}')
             dark_mean[i] = mean.value
-#             dark_median[i] = median.value
+#             dark_median[i] = med.value
         dark_means.append(dark_mean)
 #         dark_medians.append(dark_median)
 
@@ -149,7 +150,7 @@ def determine_dark_current(input, master_bias=None, plot=False,
 
         # Plot Dark Current Fit
         if plot is not False:
-            log.info(f'Generating plot for dark current for frame {i}')
+            log.info(f'  Generating plot for dark current for frame {i}')
             longest_exptime = max(exptimes)
             plt.figure(figsize=(12,6))
             plt.title('Dark Current')
@@ -170,11 +171,12 @@ def determine_dark_current(input, master_bias=None, plot=False,
             ax.grid()
 
             if plot is True:
-                obstime = dark_frames.frames[0].obstime()
+                obstime = dark_frames.frames[0].obstime().replace(':', '').replace('/', '')
                 if obstime is None:
                     plot_file = Path(f'dark_current_ext{i}.png')
                 else:
                     plot_file = Path(f'dark_current_ext{i}_{obstime}.png')
+                log.info(f'  Generating dark current plot: {plot_file}')
                 plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
             else:
                 plt.show()

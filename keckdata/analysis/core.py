@@ -50,7 +50,7 @@ def get_mode(input):
     return mode
 
 
-def make_master_bias(kdl, clippingsigma=5, clippingiters=3, trimpix=0):
+def make_master_bias(kdl, clippingsigma=5, clippingiters=3, trim=0):
     '''
     Make master bias from a set of KeckData objects.  Input should be either
     a list of KeckData objects, a list of file paths, or a KeckDataList object.
@@ -75,7 +75,7 @@ def make_master_bias(kdl, clippingsigma=5, clippingiters=3, trimpix=0):
             sigma_clip_high_thresh=clippingsigma)
         ny, nx = master_bias_i.data.shape
         mean, median, stddev = stats.sigma_clipped_stats(
-            master_bias_i.data[trimpix:ny-trimpix,trimpix:nx-trimpix],
+            master_bias_i.data[trim:ny-trim,trim:nx-trim],
             sigma=clippingsigma,
             iters=clippingiters) * u.adu
         mode = get_mode(master_bias_i.data)
