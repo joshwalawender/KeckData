@@ -88,12 +88,12 @@ class MOSFIREData(KeckData):
         return exptime
 
     def obstime(self):
-        date = self.get('DATE-OBS', None)
-        time = self.get('UTC', None)
+        date = self.get('DATE-OBS', mode=str)
+        time = self.get('UTC', mode=str)
         return f"{date}T{time}"
 
     def readout_mode(self):
-        nreads = self.get('READDONE', None)
+        nreads = self.get('READDONE', mode=int)
         translator = {2: 'CDS', 32: 'MCDS16'}
         try:
             mode = translator[nreads]
