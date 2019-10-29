@@ -14,7 +14,7 @@ from astropy.table import Table
 ## Handle FITS Section Strings in Headers
 ##-------------------------------------------------------------------------
 def split_fits_section(fitssec):
-    '''Split a fits section string such as "[100:300,600:900]"
+    '''Split a fits section string such as "[100:300,600:900]" to a dictionary.
     '''
     xr, yr = fitssec.strip('[').strip(']').split(',')
     x1, x2 = xr.split(':')
@@ -181,9 +181,21 @@ class KeckData(object):
         return ( int(bx.strip()), int(by.strip()) )
 
     def filename(self):
-        return self.get('KOAID', None)
+        """Return a string with the filename.
+        
+        Returns KOAID if that is present (i.e. this file has been processed
+        through KOA).  Otherwise return the DATAFILE value.
+        """
+        KOAID = self.get('KOAID', None)
+        if KOAID is None:
+            DATAFILE = f"{self.get('DATAFILE', None)}.fits"
+            return DATAFILE
+        else:
+            return KOAID
 
     def obstime(self):
+        """Return a string with the UT date and time of the observation.
+        """
         return self.get('DATE', None)
 
     def iraf_mosaic(self, fordisplay=True, zero=True, xgap=None, ygap=None):
