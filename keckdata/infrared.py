@@ -46,7 +46,7 @@ class MOSFIREData(KeckData):
         # Determine Image Type
         # Dark frame
         if 'dark' in obsmode.lower() and not arcpower:
-            if self.exptime() < 3:
+            if self.exptime() < self.minitime():
                 return 'BIAS'
             else:
                 return 'DARK'
@@ -100,3 +100,9 @@ class MOSFIREData(KeckData):
         except KeyError:
             mode = f'NREADS = {nreads}'
         return mode
+
+    def minitime(self):
+        nreads = self.get('READDONE', mode=int)
+        readtime = self.get('READTIME', mode=float)
+        minitime = np.ceil(nreads/2 * readtime)
+        return minitime
