@@ -46,7 +46,7 @@ class MOSFIREData(KeckData):
         # Determine Image Type
         # Dark frame
         if 'dark' in obsmode.lower() and not arcpower:
-            if self.exptime() < 2:
+            if self.exptime() < 3:
                 return 'BIAS'
             else:
                 return 'DARK'
@@ -91,3 +91,12 @@ class MOSFIREData(KeckData):
         date = self.get('DATE-OBS', None)
         time = self.get('UTC', None)
         return f"{date}T{time}"
+
+    def readout_mode(self):
+        nreads = self.get('READDONE', None)
+        translator = {2: 'CDS', 32: 'MCDS16'}
+        try:
+            mode = translator[nreads]
+        except KeyError:
+            mode = f'NREADS = {nreads}'
+        return mode
