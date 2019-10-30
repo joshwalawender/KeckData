@@ -198,6 +198,9 @@ class KeckData(object):
         """
         return self.get('DATE', None)
 
+    def readout_mode(self):
+        return None
+
     def iraf_mosaic(self, fordisplay=True, zero=True, xgap=None, ygap=None):
         '''Using the DETSEC and DATASEC keywords in the header, form a mosaic
         version of the data with all pixeldata arrays combined in to a single
@@ -520,8 +523,8 @@ class KeckDataList(object):
         self.kdtype = kdtypes.pop()
 
     def pop(self):
-        '''Return one object from the list and remove it from the list.
-        '''
+        """Return one object from the list and remove it from the list.
+        """
         self.len -= 1
         return self.frames.pop()
         

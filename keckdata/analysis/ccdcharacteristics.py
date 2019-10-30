@@ -43,6 +43,8 @@ def determine_read_noise(input, master_bias=None, plot=False, gain=None,
 
     inst = (bias0.instrument).replace(' ', '_')
     obstime = bias0.obstime().replace(':', '').replace('/', '')
+    readmode = bias0.readout_mode()
+    readmode_str = '' if readmode is None else f"_{readmode}"
 
     diff = bias0.subtract(master_bias)
     npds = len(diff.pixeldata)
@@ -101,7 +103,7 @@ def determine_read_noise(input, master_bias=None, plot=False, gain=None,
                       f"OBSTIME = {obstime}")
             plt.imshow(data, origin='lower', norm=norm, cmap='gray')
 
-            plot_file = Path(f'read_noise_{inst}_ext{i}.png')
+            plot_file = Path(f'read_noise_{inst}{readmode_str}_ext{i}.png')
             log.info(f'  Generating read noise plot: {plot_file}')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
 
@@ -119,6 +121,9 @@ def determine_dark_current(input, master_bias=None, plot=False,
     log.info(f'  Found {dark_frames.len} dark frames')
     npds = len(dark_frames.frames[0].pixeldata)
     log.info(f'  Determining dark current for each of {npds} extensions')
+    inst = (dark_frames.frames[0].instrument).replace(' ', '_')
+    readmode = dark_frames.frames[0].readout_mode()
+    readmode_str = '' if readmode is None else f"_{readmode}"
 
     # Get image statistics for each dark frame
     exptimes = []
@@ -186,16 +191,9 @@ def determine_dark_current(input, master_bias=None, plot=False,
             ax.legend(loc='upper left', fontsize=10)
             ax.grid()
 
-            if plot is True:
-                obstime = dark_frames.frames[0].obstime().replace(':', '').replace('/', '')
-                if obstime is None:
-                    plot_file = Path(f'dark_current_ext{i}.png')
-                else:
-                    plot_file = Path(f'dark_current_ext{i}_{obstime}.png')
-                log.info(f'  Generating dark current plot: {plot_file}')
-                plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
-            else:
-                plt.show()
+            plot_file = Path(f'dark_current_{inst}{readmode_str}_ext{i}.png')
+            log.info(f'  Generating dark current plot: {plot_file}')
+            plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
 
     return u.Quantity(DC)
 
