@@ -146,7 +146,7 @@ class NIRSPECSPECData(KeckData):
 
     def readout_mode(self):
         nreads = self.get('READDONE', mode=int)
-        translator = {2: 'CDS', 32: 'MCDS16'}
+        translator = {2: 'CDS', 16: 'MCDS16'}
         try:
             mode = translator[nreads]
         except KeyError:
