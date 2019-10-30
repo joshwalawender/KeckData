@@ -17,7 +17,7 @@ from .core import *
 from .. import KeckData, KeckDataList
 
 
-def determine_read_noise(input, master_bias=None, plot=False,
+def determine_read_noise(input, master_bias=None, plot=False, gain=None,
                          clippingsigma=5, clippingiters=3, trim=0,
                          plot_range_std=10,
                          ):
@@ -41,6 +41,9 @@ def determine_read_noise(input, master_bias=None, plot=False,
     else:
         raise KeckDataError(f'Input of type {type(input)} not understood')
 
+    inst = (bias0.instrument).replace(' ', '_')
+    obstime = bias0.obstime().replace(':', '').replace('/', '')
+
     diff = bias0.subtract(master_bias)
     npds = len(diff.pixeldata)
     log.info(f'  Determining read noise for each of {npds} extensions')
@@ -63,8 +66,11 @@ def determine_read_noise(input, master_bias=None, plot=False,
         if plot is not False:
             log.info(f'  Generating plot for: {bias0.filename()}, frame {i}')
             data = bias0.pixeldata[i].data[trim:ny-trim,trim:nx-trim]
-            std = np.std(data)
+            std = RN.value #np.std(data)
+            if gain is not None:
+                RN *= gain
             mode = get_mode(data)
+            median = np.median(data)
             binwidth = int(20*std)
             binsize = 1
             med = np.median(data)
@@ -73,25 +79,31 @@ def determine_read_noise(input, master_bias=None, plot=False,
 
             plt.figure(figsize=(18,18))
             plt.subplot(2,1,1)
-            plt.title(bias0.filename())
-            plt.imshow(data, origin='lower', norm=norm, cmap='gray')
-            plt.subplot(2,1,2)
-            plt.hist(data.ravel(), log=True, bins=bins, color='g', alpha=0.5)
+            plt.title(f"{inst}: {bias0.filename()}\n"
+                      f"Read Noise = {RN:.2f}")
+            N, bins, _ = plt.hist(data.ravel(), log=True, bins=bins,
+                                  color='g', alpha=0.5, label='data')
+            rn_envelope = models.Gaussian1D(mean=median, stddev=std,
+                          amplitude=max(N))
+            modelx = np.linspace(mode-plot_range_std*std, mode+plot_range_std*std, 100)
+            modely = rn_envelope(modelx)
+            plt.plot(modelx, modely, 'r-', alpha=0.5,
+                     label=f'model (RN={RN:.2f})')
             plt.xlim(mode-plot_range_std*std, mode+plot_range_std*std)
+            plt.ylim(1,max(N)*2)
             plt.xlabel('Value (ADU)')
             plt.ylabel('N Pix')
             plt.grid()
+            plt.legend(loc='best')
 
-            if plot is True:
-                obstime = bias0.obstime().replace(':', '').replace('/', '')
-                if obstime is None:
-                    plot_file = Path(f'read_noise_ext{i}.png')
-                else:
-                    plot_file = Path(f'read_noise_ext{i}_{obstime}.png')
-                log.info(f'  Generating read noise plot: {plot_file}')
-                plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
-            else:
-                plt.show()
+            plt.subplot(2,1,2)
+            plt.title(f"{bias0.filename()}, trim={trim:d}\n"
+                      f"OBSTIME = {obstime}")
+            plt.imshow(data, origin='lower', norm=norm, cmap='gray')
+
+            plot_file = Path(f'read_noise_{inst}_ext{i}.png')
+            log.info(f'  Generating read noise plot: {plot_file}')
+            plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
 
     return u.Quantity(read_noise)
 
