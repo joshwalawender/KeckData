@@ -416,6 +416,9 @@ def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
         elif instrument.strip() == 'MOSFIRE':
             from .infrared import MOSFIREData
             datatype = MOSFIREData
+        elif instrument.strip() == 'NIRSPEC':
+            from .infrared import NIRSPECSPECData
+            datatype = NIRSPECSPECData
         else:
             print(f'Using generic KeckData object for "{instrument}"')
             datatype = KeckData
