@@ -185,7 +185,7 @@ def determine_dark_current(input, master_bias=None, plot=False,
             plt.xlim(-0.02*longest_exptime, 1.10*longest_exptime)
             min_level = np.floor(min(dark_means[:,i]))
             max_level = np.ceil(max(dark_means[:,i]))
-            plt.ylim(min([0,min_level]), 1.05*max_level)
+            plt.ylim(min([0,min_level]), 1.15*max_level)
             ax.set_xlabel('Exposure Time (s)')
             ax.set_ylabel('Dark Level (ADU)')
             ax.legend(loc='upper left', fontsize=10)
@@ -209,6 +209,10 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
     flat_frames = KeckDataList([kd for kd in input.frames
                   if kd.type() in ['INTFLAT', 'FLAT']])
     npds = len(flat_frames.frames[0].pixeldata)
+
+    inst = (flat_frames.frames[0].instrument).replace(' ', '_')
+    readmode = flat_frames.frames[0].readout_mode()
+    readmode_str = '' if readmode is None else f"_{readmode}"
 
     # Get image statistics for each flat file
     names = ['file', 'exptime', 'exptime_int']
@@ -353,11 +357,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                 ax.grid()
                 ax.legend(loc='upper left', fontsize=10)
 
-            obstime = flat_frames.frames[0].obstime().replace(':', '').replace('/', '')
-            if obstime is None:
-                plot_file = Path(f'gain_ext{i}.png')
-            else:
-                plot_file = Path(f'gain_ext{i}_{obstime}.png')
+            plot_file = Path(f'gain_{inst}{readmode_str}_ext{j}.png')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
 
             log.info('  Generating figure with linearity plot')
@@ -378,10 +378,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                 ax.set_ylabel('Signal Decrement (%) [(counts-fit)/counts]')
             #     plt.ylim(np.floor(min(decrements)), np.ceil(max(decrements)))
                 ax.grid()
-            if obstime is None:
-                plot_file = Path(f'linearity_ext{i}.png')
-            else:
-                plot_file = Path(f'linearity_ext{i}_{obstime}.png')
+            plot_file = Path(f'linearity{inst}{readmode_str}_ext{j}.png')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
     return u.Quantity(gains)
 
