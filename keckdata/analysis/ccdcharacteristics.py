@@ -174,7 +174,8 @@ def determine_dark_current(input, master_bias=None, plot=False,
             log.info(f'  Generating plot for dark current for frame {i}')
             longest_exptime = max(exptimes)
             plt.figure(figsize=(12,6))
-            plt.title('Dark Current')
+            title = f"{inst} Dark Current (ext {i})"
+            plt.title(title)
             ax = plt.gca()
             ax.plot(exptimes, dark_means[:,i], 'ko', alpha=1.0,
                     label='mean count level in ADU')
@@ -334,6 +335,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
             plt.figure(figsize=(12,12))
             for i,plottype in enumerate(['', '_log']):
                 plt.subplot(2,1,i+1)
+                if i == 0: plt.title(f"{inst} Gain (ext {j})")
                 ax = plt.gca()
                 x = np.array(signal)[mask]
                 y = np.array(variance)[mask]
@@ -364,6 +366,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
             plt.figure(figsize=(12,12))
             for i,plottype in enumerate(['', '_log']):
                 ax = plt.gca()
+                plt.title(f"{inst} Linearity (ext {j})")
                 time = np.array(signal_times)
                 counts = np.array(signal)
                 fit_counts = [linearity_fit(t) for t in time]
@@ -378,7 +381,7 @@ def determine_gain(input, master_bias=None, read_noise=None, plot=False,
                 ax.set_ylabel('Signal Decrement (%) [(counts-fit)/counts]')
             #     plt.ylim(np.floor(min(decrements)), np.ceil(max(decrements)))
                 ax.grid()
-            plot_file = Path(f'linearity{inst}{readmode_str}_ext{j}.png')
+            plot_file = Path(f'linearity_{inst}{readmode_str}_ext{j}.png')
             plt.savefig(plot_file, bbox_inches='tight', pad_inches=0.10)
     return u.Quantity(gains)
 
