@@ -420,8 +420,17 @@ def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
             from .infrared import MOSFIREData
             datatype = MOSFIREData
         elif instrument.strip() == 'NIRSPEC':
-            from .infrared import NIRSPECSPECData
-            datatype = NIRSPECSPECData
+            from .infrared import NIRSPECData
+            datatype = NIRSPECData
+        elif instrument.strip() == 'NIRES':
+            from .infrared import NIRESData
+            datatype = NIRESData
+            # Disregard second and third extensions for NIRES data.
+            # This is a terrible hack because the extensions are not 
+            # named properly, the headers have no information indicating what
+            # the data contained in them is.
+            errorplane = hdul.pop(1)
+            qualityplane = hdul.pop(1)
         else:
             print(f'Using generic KeckData object for "{instrument}"')
             datatype = KeckData
