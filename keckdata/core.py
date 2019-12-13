@@ -81,6 +81,20 @@ class KeckData(object):
         self.instrument = None
         self.xgap = 0
         self.ygap = 0
+        self.fixed = None
+
+    def fixme(self):
+        """On ingestion, fix anything that is non standard which needs to be
+        handled before working with the data.  For example, repair any
+        incorrectly formed header values here in this method when you create
+        a subclass.
+        
+        A subclass which needs this should set `self.fixed` to `False` in the
+        `__init__` and set it to True once this `fixme` method has been applied.
+        
+        A `self.fixed` value of `None` should indicate no fixing is needed.
+        """
+        pass
 
     def verify(self):
         """Method to check the data against expectations. For the 
@@ -475,6 +489,9 @@ def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
     if verbose: print(f'Read in {len(kd.headers)} headers, '
                       f'{len(kd.pixeldata)} sets of pixel data, '
                       f'and {len(kd.tabledata)} tables')
+    if kd.fixed is False:
+        print('Repairing data')
+        kd.fixme()
     kd.verify()
     return kd
 

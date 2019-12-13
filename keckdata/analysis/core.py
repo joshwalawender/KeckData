@@ -17,10 +17,10 @@ from .. import KeckData, KeckDataList
 ##-------------------------------------------------------------------------
 import logging
 log = logging.getLogger('analysis')
-log.setLevel(logging.INFO)
+log.setLevel(logging.DEBUG)
 ## Set up console output
 LogConsoleHandler = logging.StreamHandler()
-LogConsoleHandler.setLevel(logging.DEBUG)
+LogConsoleHandler.setLevel(logging.INFO)
 LogFormat = logging.Formatter('%(asctime)s %(levelname)8s: %(message)s',
                               datefmt='%Y-%m-%d %H:%M:%S')
 LogConsoleHandler.setFormatter(LogFormat)
@@ -44,7 +44,14 @@ def get_mode(input):
     bins = np.arange(bmin,bmax,1)
     hist, bins = np.histogram(data, bins=bins)
     centers = (bins[:-1] + bins[1:]) / 2
-    w = np.argmax(hist)
+    try:
+        w = np.argmax(hist)
+    except ValueError as e:
+        print(data)
+        print(bmin, bmax)
+        print(bins)
+        print(hist)
+        raise e
     mode = int(centers[w])
 
     return mode
@@ -76,11 +83,13 @@ def make_master_bias(kdl, clippingsigma=5, clippingiters=3, trim=0):
     log.info(f'Making master bias for each of {npds} extensions')
     for i in range(npds):
         biases = [kd.pixeldata[i] for kd in kdl.frames]
+        log.debug(f'  Generating master bias for {i+1}th extension')
         master_bias_i = ccdproc.combine(biases, combine='average',
             sigma_clip=True,
             sigma_clip_low_thresh=clippingsigma,
             sigma_clip_high_thresh=clippingsigma)
         ny, nx = master_bias_i.data.shape
+        log.debug(f'  Determining data statistics for {i+1}th extension')
         mean, median, stddev = stats.sigma_clipped_stats(
             master_bias_i.data[trim:ny-trim,trim:nx-trim],
             sigma=clippingsigma,
