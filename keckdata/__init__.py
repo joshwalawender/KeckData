@@ -1,3 +1,7 @@
 from .core import *
-from .infrared import MOSFIREData
-from .visible import HIRESData
+from .mosfire import MOSFIREData
+from .nirspec import NIRSPECData
+from .nires import NIRESData
+from .hires import HIRESData
+from .deimos import DEIMOSData
+from .lris import LRISBlueData, LRISRedData
