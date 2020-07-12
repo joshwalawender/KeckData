@@ -36,7 +36,7 @@ class VYSOS20(KeckData):
     def exptime(self):
         """Return the exposure time in seconds.
         """
-        return float(self.get('EXPTIME'), None)
+        return float(self.get('EXPTIME'))
 
     def obstime(self):
         return self.get('DATE-OBS', None)
