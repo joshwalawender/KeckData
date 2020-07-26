@@ -149,7 +149,7 @@ class KeckData(object):
             self.pixeldata[i] = pd.multiply(kd2)
         return self
 
-    def get(self, kw, mode=None):
+    def get(self, kw, mode=str):
         """Method to loop over all headers and get the specified keyword value.
         Returns the first result it finds and doe not check for duplicate
         instances of the keyword in subsequent headers.
