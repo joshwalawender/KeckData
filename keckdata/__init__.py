@@ -5,3 +5,4 @@ from .nires import NIRESData
 from .hires import HIRESData
 from .deimos import DEIMOSData
 from .lris import LRISBlueData, LRISRedData
+from .vysos import VYSOS20
