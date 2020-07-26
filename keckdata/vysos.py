@@ -40,3 +40,10 @@ class VYSOS20(KeckData):
 
     def obstime(self):
         return self.get('DATE-OBS', None)
+
+    def verify(self):
+        pass
+
+    def gain(self):
+        headergain = self.get('GAIN', None)
+        return float(headergain) if headergain is not None else None
