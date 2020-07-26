@@ -357,25 +357,26 @@ def get_hdu_type(hdu):
               data written by either CCDData or KeckData.
     'tabledata' -- This is a TableHDU type HDU.
     """
-    if type(hdu) in [fits.PrimaryHDU, fits.ImageHDU] and hdu.data is None:
+    image_hdu_types = [fits.PrimaryHDU, fits.ImageHDU, fits.CompImageHDU]
+    if type(hdu) in image_hdu_types and hdu.data is None:
         # This is a header only HDU
-        return 'header'
-    elif type(hdu) in [fits.PrimaryHDU, fits.ImageHDU] and hdu.data is not None:
+        hdu_type = 'header'
+    elif type(hdu) in image_hdu_types and hdu.data is not None:
         # This is a pixel data HDU
         extname = hdu.header.get('EXTNAME', '').strip()
         if extname == 'MASK':
             # This is a mask HDU
-            return 'mask'
+            hdu_type = 'mask'
         elif extname == 'UNCERT':
             # This is an uncertainty HDU
-            return 'uncertainty'
+            hdu_type = 'uncertainty'
         else:
             # This must be pixel data
-            return 'pixeldata'
+            hdu_type = 'pixeldata'
     elif type(hdu) == fits.TableHDU:
             # This is table data
-            return 'tabledata'
-
+            hdu_type = 'tabledata'
+    return hdu_type
 
 ##-------------------------------------------------------------------------
 ## KeckData Reader
