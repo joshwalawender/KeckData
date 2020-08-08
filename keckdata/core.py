@@ -83,6 +83,7 @@ class KeckData(object):
         self.ygap = 0
         self.fixed = None
         self.fitsfilename = ''
+        self.fitsfilepath = None
 
     def fixme(self):
         """On ingestion, fix anything that is non standard which needs to be
@@ -454,6 +455,7 @@ def fits_reader(file, defaultunit='adu', datatype=None, verbose=False):
     # Loop though HDUs and read them in as pixel data or table data
     kd = datatype()
     kd.fitsfilename = file.name
+    kd.fitsfilepath = file
     while len(hdul) > 0:
         if verbose: print('Extracting HDU')
         hdu = hdul.pop(0)
