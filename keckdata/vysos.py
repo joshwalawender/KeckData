@@ -30,6 +30,12 @@ class VYSOS20(KeckData):
                       }
         return translator.get(obsmode.strip(), None)
 
+    def filter(self):
+        """Return the image filter.
+        """
+        filter = self.get('FILTER').strip()
+        return filter
+
     def filename(self):
         return self.fitsfilename
 

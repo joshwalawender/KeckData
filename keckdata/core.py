@@ -184,6 +184,11 @@ class KeckData(object):
         """
         return None
 
+    def filter(self):
+        """Return the image filter.
+        """
+        return None
+
     def exptime(self):
         """Return the exposure time in seconds.
         """
