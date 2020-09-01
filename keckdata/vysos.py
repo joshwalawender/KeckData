@@ -45,7 +45,7 @@ class VYSOS20(KeckData):
         return float(self.get('EXPTIME'))
 
     def obstime(self):
-        return self.get('DATE-OBS', None)
+        return datetime.strptime(self.get('DATE-OBS'), '%Y-%m-%dT%H:%M:%S')
 
     def verify(self):
         pass
