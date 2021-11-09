@@ -77,13 +77,14 @@ class VYSOS5(KeckData):
             raise IncorrectNumberOfExtensions("table", "0", self)
 
     def type(self):
-        obsmode = self.get('IMAGETYP')
+        obsmode = self.get('IMAGETYP').strip()
         translator = {'Light Frame': 'OBJECT',
                       'LIGHT': 'OBJECT',
                       'Bias Frame': 'BIAS',
                       'BIAS': 'BIAS',
                       'Dark Frame': 'DARK',
                       'Dark': 'DARK',
+                      'DARK': 'DARK',
                       'FLAT': 'FLAT'
                       }
         return translator.get(obsmode.strip(), None)
